@@ -7,17 +7,25 @@
   </head>
   <body>
     <header>
-      <button id="locate">Mein Standort</button>
-      <div class="suche">
-        <input id="adresse" type="search" placeholder="Oder Adresse eingeben …" autocomplete="off" />
-        <ul id="vorschlaege" hidden></ul>
-      </div>
+      <button id="locate" type="button">Mein Standort</button>
+      <form id="adressform" autocomplete="off">
+        <input id="plz" inputmode="numeric" maxlength="5" placeholder="PLZ" />
+        <input id="stadt" placeholder="Stadt" />
+        <div class="suche">
+          <input id="strasse" placeholder="Straße" />
+          <ul id="vorschlaege" hidden></ul>
+        </div>
+        <input id="hausnummer" placeholder="Nr." />
+        <button type="submit">Suchen</button>
+      </form>
       <select id="klinikwahl">
         <option value="">Vorgegebene Klinik wählen …</option>
       </select>
+      <div id="filter"></div>
       <p id="hinweis"></p>
     </header>
     <div id="map"></div>
+    <p id="keintreffer" hidden>Keine Klinik hat alle gewählten Fachrichtungen.</p>
     <ol id="list"></ol>
     <script type="module" src="/src/main.ts"></script>
   </body>

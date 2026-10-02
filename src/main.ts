@@ -162,15 +162,15 @@ function bestimmeStandort() {
     return;
   }
   if (!('geolocation' in navigator)) {
-    zeigeHinweis('Dein Browser kann keinen Standort bestimmen. Bitte gib eine Adresse ein.');
-    adressFeld.focus();
+    zeigeHinweis('Dein Browser kann keinen Standort bestimmen. Bitte gib die Adresse ein.');
+    plzFeld.focus();
     return;
   }
   navigator.geolocation.getCurrentPosition(
     (pos) => setzeStandort(pos.coords.latitude, pos.coords.longitude),
     () => {
-      zeigeHinweis('Standort nicht verfügbar oder nicht erlaubt. Bitte gib eine Adresse ein.');
-      adressFeld.focus();
+      zeigeHinweis('Standort nicht verfügbar oder nicht erlaubt. Bitte gib die Adresse ein.');
+      plzFeld.focus();
     },
     { enableHighAccuracy: true, timeout: 10000 },
   );
@@ -179,11 +179,50 @@ function bestimmeStandort() {
 document.querySelector('#locate')!.addEventListener('click', bestimmeStandort);
 
 // ---------------------------------------------------------------------------
-// Adresssuche mit Vorschlägen
+// Adresseingabe: PLZ, Stadt, Straße, Hausnummer
 // ---------------------------------------------------------------------------
 
-const adressFeld = document.querySelector<HTMLInputElement>('#adresse')!;
+const plzFeld = document.querySelector<HTMLInputElement>('#plz')!;
+const stadtFeld = document.querySelector<HTMLInputElement>('#stadt')!;
+const strassenFeld = document.querySelector<HTMLInputElement>('#strasse')!;
+const nummerFeld = document.querySelector<HTMLInputElement>('#hausnummer')!;
+const adressFormular = document.querySelector<HTMLFormElement>('#adressform')!;
 const vorschlagsListe = document.querySelector<HTMLUListElement>('#vorschlaege')!;
+
+// Postleitzahlen in und um Düsseldorf. Bei Bedarf einfach erweitern.
+const PLZ_ORTE: Record<string, string> = {
+  '40667': 'Meerbusch', '40668': 'Meerbusch', '40670': 'Meerbusch',
+  '40699': 'Erkrath',
+  '40721': 'Hilden', '40723': 'Hilden', '40724': 'Hilden',
+  '40878': 'Ratingen', '40880': 'Ratingen', '40882': 'Ratingen', '40883': 'Ratingen', '40885': 'Ratingen',
+  '41460': 'Neuss', '41462': 'Neuss', '41464': 'Neuss', '41466': 'Neuss',
+  '41468': 'Neuss', '41469': 'Neuss', '41470': 'Neuss', '41472': 'Neuss',
+};
+
+function ortZurPlz(plz: string): string | undefined {
+  const zahl = Number(plz);
+  if (zahl >= 40210 && zahl <= 40629) return 'Düsseldorf'; // alle Düsseldorfer PLZ
+  return PLZ_ORTE[plz];
+}
+
+// Merkt sich, ob die Stadt automatisch eingetragen wurde.
+// Eine selbst eingetippte Stadt wird nie überschrieben.
+let stadtAutomatisch = false;
+
+plzFeld.addEventListener('input', () => {
+  const plz = plzFeld.value.trim();
+  if (plz.length !== 5) return;
+  const ort = ortZurPlz(plz);
+  if (ort && (stadtFeld.value === '' || stadtAutomatisch)) {
+    stadtFeld.value = ort;
+    stadtAutomatisch = true;
+    strassenFeld.focus(); // weiter zur Straße
+  }
+});
+
+stadtFeld.addEventListener('input', () => {
+  stadtAutomatisch = false;
+});
 
 type PhotonErgebnis = {
   geometry: { coordinates: [number, number] }; // [Länge, Breite]
@@ -196,60 +235,97 @@ type PhotonErgebnis = {
   };
 };
 
-// Macht aus einem Suchergebnis einen lesbaren Text
-function beschrifteErgebnis(p: PhotonErgebnis['properties']): string {
-  const strasse = [p.street, p.housenumber].filter(Boolean).join(' ');
-  const ort = [p.postcode, p.city].filter(Boolean).join(' ');
-  // Bei Orten wie "Hauptbahnhof" steht der Name in "name", sonst die Straße
-  const erster = p.name && p.name !== p.street ? p.name : strasse;
-  return [erster, erster === strasse ? '' : strasse, ort].filter(Boolean).join(', ');
+async function photonSuche(text: string, extra = ''): Promise<PhotonErgebnis[]> {
+  const url = `${PHOTON_URL}?q=${encodeURIComponent(text)}&lang=de&limit=10&bbox=${SUCH_BEREICH}${extra}`;
+  const antwort = await fetch(url);
+  if (!antwort.ok) throw new Error(`HTTP ${antwort.status}`);
+  const daten: { features: PhotonErgebnis[] } = await antwort.json();
+  return daten.features;
 }
+
+// --- Straßenvorschläge, passend zur gewählten Stadt ---
 
 let suchTimer: number | undefined;
 let letzteSuche = 0;
 
-adressFeld.addEventListener('input', () => {
+strassenFeld.addEventListener('input', () => {
   // Erst suchen, wenn 400 ms lang nichts mehr getippt wurde (schont den Server)
   window.clearTimeout(suchTimer);
-  const text = adressFeld.value.trim();
+  const text = strassenFeld.value.trim();
   if (text.length < 3) {
     vorschlagsListe.hidden = true;
     return;
   }
-  suchTimer = window.setTimeout(() => sucheAdresse(text), 400);
+  suchTimer = window.setTimeout(() => sucheStrassen(text), 400);
 });
 
-async function sucheAdresse(text: string) {
+async function sucheStrassen(text: string) {
   const dieseSuche = ++letzteSuche;
-  const url = `${PHOTON_URL}?q=${encodeURIComponent(text)}&lang=de&limit=5&bbox=${SUCH_BEREICH}`;
+  const stadt = stadtFeld.value.trim();
   try {
-    const antwort = await fetch(url);
-    if (!antwort.ok) throw new Error(`HTTP ${antwort.status}`);
-    const daten: { features: PhotonErgebnis[] } = await antwort.json();
-    // Eine ältere Suche, die später ankommt, wird ignoriert
-    if (dieseSuche !== letzteSuche) return;
-    zeigeVorschlaege(daten.features);
+    // osm_tag=highway: nur Straßen, keine Geschäfte oder Haltestellen
+    const ergebnisse = await photonSuche(`${text} ${stadt}`, '&osm_tag=highway');
+    if (dieseSuche !== letzteSuche) return; // ältere Suche ignorieren
+
+    // Nur Straßen aus der gewählten Stadt, jeden Namen nur einmal
+    const namen = new Set<string>();
+    for (const e of ergebnisse) {
+      const name = e.properties.name;
+      if (!name) continue;
+      if (stadt && e.properties.city && e.properties.city !== stadt) continue;
+      namen.add(name);
+    }
+    zeigeStrassenVorschlaege([...namen].slice(0, 6));
   } catch {
     zeigeHinweis('Die Adresssuche ist gerade nicht erreichbar.');
   }
 }
 
-function zeigeVorschlaege(ergebnisse: PhotonErgebnis[]) {
+function zeigeStrassenVorschlaege(namen: string[]) {
   vorschlagsListe.innerHTML = '';
-  for (const e of ergebnisse) {
+  for (const name of namen) {
     const li = document.createElement('li');
-    li.textContent = beschrifteErgebnis(e.properties);
+    li.textContent = name;
     li.addEventListener('click', () => {
-      const [lon, lat] = e.geometry.coordinates;
-      adressFeld.value = li.textContent ?? '';
+      strassenFeld.value = name;
       vorschlagsListe.hidden = true;
-      zeigeHinweis('');
-      setzeStandort(lat, lon);
+      nummerFeld.focus(); // weiter zur Hausnummer
     });
     vorschlagsListe.appendChild(li);
   }
-  vorschlagsListe.hidden = ergebnisse.length === 0;
+  vorschlagsListe.hidden = namen.length === 0;
 }
+
+// --- Adresse übernehmen (Knopf "Suchen" oder Enter) ---
+
+adressFormular.addEventListener('submit', async (e) => {
+  e.preventDefault(); // sonst lädt der Browser die Seite neu
+  vorschlagsListe.hidden = true;
+  const plz = plzFeld.value.trim();
+  const stadt = stadtFeld.value.trim();
+  const strasse = strassenFeld.value.trim();
+  const nummer = nummerFeld.value.trim();
+  if (!strasse || (!plz && !stadt)) {
+    zeigeHinweis('Bitte mindestens Straße und PLZ oder Stadt angeben.');
+    return;
+  }
+  zeigeHinweis('');
+  try {
+    const ergebnisse = await photonSuche(`${strasse} ${nummer}, ${plz} ${stadt}`);
+    const treffer = ergebnisse[0];
+    if (!treffer) {
+      zeigeHinweis('Adresse nicht gefunden.');
+      return;
+    }
+    if (nummer && treffer.properties.housenumber !== nummer) {
+      zeigeHinweis('Hausnummer nicht gefunden, es wird die Straße verwendet.');
+    }
+    const [lon, lat] = treffer.geometry.coordinates;
+    setzeStandort(lat, lon);
+  } catch {
+    zeigeHinweis('Die Adresssuche ist gerade nicht erreichbar.');
+  }
+});
 
 // ---------------------------------------------------------------------------
 // Route
@@ -359,6 +435,7 @@ async function waehleKlinik(eintrag: Eintrag) {
   // Markierung: nur dieser Eintrag ist ausgewählt
   document.querySelectorAll('.klinik.ausgewaehlt').forEach((el) => el.classList.remove('ausgewaehlt'));
   eintrag.li.classList.add('ausgewaehlt');
+  wendeFilterAn(); // vorher ausgewählte Klinik ggf. wieder ausblenden
   klinikWahl.value = String(alleKliniken.indexOf(k)); // Auswahlliste mitziehen
 
   zeigeStartUndZiel(start, k);
@@ -439,6 +516,7 @@ async function zeigeKliniken(lat: number, lon: number) {
     .sort((a, b) => a.luftlinieKm - b.luftlinieKm);
   liste.innerHTML = '';
   eintraege.forEach((e) => liste.appendChild(e.li));
+  wendeFilterAn();
 
   // 2. Fahrzeiten zu allen Kliniken mit einer einzigen Anfrage holen
   try {
@@ -466,6 +544,48 @@ async function zeigeKliniken(lat: number, lon: number) {
       e.li.querySelector('.fahrzeit')!.textContent = `${e.luftlinieKm.toFixed(1)} km Luftlinie`;
     });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Filter nach Fachrichtungen
+// ---------------------------------------------------------------------------
+
+const filterBereich = document.querySelector<HTMLDivElement>('#filter')!;
+const keinTreffer = document.querySelector<HTMLParagraphElement>('#keintreffer')!;
+const aktiveFachrichtungen = new Set<string>();
+
+// Alle Fachrichtungen, die in kliniken.json vorkommen, sortiert nach deutschem Namen
+const vorhandeneFachrichtungen = [...new Set(alleKliniken.flatMap((k) => k.specialities ?? []))].sort(
+  (a, b) => (FACHRICHTUNGEN[a] ?? a).localeCompare(FACHRICHTUNGEN[b] ?? b, 'de'),
+);
+
+for (const code of vorhandeneFachrichtungen) {
+  const knopf = document.createElement('button');
+  knopf.type = 'button';
+  knopf.className = 'schalter';
+  knopf.textContent = FACHRICHTUNGEN[code] ?? code;
+  knopf.setAttribute('aria-pressed', 'false'); // Standard: aus
+  knopf.addEventListener('click', () => {
+    const an = !aktiveFachrichtungen.has(code);
+    if (an) aktiveFachrichtungen.add(code);
+    else aktiveFachrichtungen.delete(code);
+    knopf.setAttribute('aria-pressed', String(an));
+    wendeFilterAn();
+  });
+  filterBereich.appendChild(knopf);
+}
+
+// Blendet Kliniken aus, die nicht ALLE eingeschalteten Fachrichtungen haben.
+// Die ausgewählte Klinik bleibt immer sichtbar.
+function wendeFilterAn() {
+  let sichtbar = 0;
+  for (const e of eintraege) {
+    const hat = e.klinik.specialities ?? [];
+    const passt = [...aktiveFachrichtungen].every((f) => hat.includes(f));
+    e.li.hidden = !passt && !e.li.classList.contains('ausgewaehlt');
+    if (!e.li.hidden) sichtbar++;
+  }
+  keinTreffer.hidden = !(eintraege.length > 0 && sichtbar === 0);
 }
 
 // ---------------------------------------------------------------------------
