@@ -1,6 +1,27 @@
 body { margin: 0; font-family: system-ui, sans-serif; }
-header { padding: 8px; }
+header { padding: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 button { font-size: 1.1rem; padding: 10px 16px; }
+#hinweis { width: 100%; margin: 0; color: #a40; font-size: 0.9rem; }
+#hinweis:empty { display: none; }
 #map { height: 55vh; }
-#list { padding: 8px 8px 8px 32px; }
-#list li { margin-bottom: 6px; }
+
+/* Adresssuche mit Vorschlagsliste */
+.suche { position: relative; flex: 1; min-width: 220px; }
+#adresse { width: 100%; box-sizing: border-box; font-size: 1.1rem; padding: 10px; }
+#vorschlaege {
+  position: absolute; z-index: 10; left: 0; right: 0; margin: 0; padding: 0;
+  list-style: none; background: #fff; border: 1px solid #999;
+}
+#vorschlaege li { padding: 8px 10px; cursor: pointer; }
+#vorschlaege li:hover { background: #eef; }
+
+/* Klinikliste */
+#list { list-style: none; padding: 8px; margin: 0; }
+.klinik {
+  border: 1px solid #bbb; border-radius: 8px; padding: 8px 10px;
+  margin-bottom: 8px; cursor: pointer; background: #fff;
+}
+.klinik:hover { border-color: #888; }
+.klinik.ausgewaehlt { border: 3px solid #c00; background: #fff0f0; padding: 6px 8px; }
+.fahrzeit { font-weight: bold; color: #c00; margin-top: 4px; }
+.adresse, .fachrichtungen { font-size: 0.9rem; color: #555; margin-top: 2px; }

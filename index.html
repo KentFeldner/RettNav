@@ -1,19 +1,21 @@
 <!doctype html>
-<html lang="en">
+<html lang="de">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>rettnav</title>
+    <title>RettNav</title>
   </head>
   <body>
-    <body>
-  <header>
-    <button id="locate">Mein Standort</button>
-  </header>
-  <div id="map"></div>
-  <ol id="list"></ol>
-  <script type="module" src="/src/main.ts"></script>
-</body>
+    <header>
+      <button id="locate">Mein Standort</button>
+      <div class="suche">
+        <input id="adresse" type="search" placeholder="Oder Adresse eingeben …" autocomplete="off" />
+        <ul id="vorschlaege" hidden></ul>
+      </div>
+      <p id="hinweis"></p>
+    </header>
+    <div id="map"></div>
+    <ol id="list"></ol>
+    <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
