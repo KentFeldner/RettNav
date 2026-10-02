@@ -1,4 +1,121 @@
 [
-  { "name": "Uniklinik Düsseldorf", "addr": { "city": "Düsseldorf", "country": "DE", "street": "Moorenstraße","housenumber": "5", "postcode": "40225"}, "lat": 51.1959746, "lon": 6.7894365, "notaufnahme": true, "specialities": ["cardiac", "neurological", "pulmonological"]},
-  { "name": "Marien Hospital", "addr": { "city": "Düsseldorf", "country": "DE", "street": "Rochusstraße","housenumber": "2", "postcode": "40479"}, "lat": 51.2359753, "lon": 6.7855856, "notaufnahme": true, "specialities": ["neurological"]}
+  {
+  "name": "001 Florence-Nightingale-Krankenhaus der Kaiserswerther Diakonie",
+  "addr": {
+    "street": "Kreuzbergstraße",
+    "housenumber": "79",
+    "postcode": "40489",
+    "city": "Düsseldorf",
+    "country": ""
+  },
+  "lat": 51.29986,
+  "lon": 6.74941,
+  "notaufnahme": true
+},
+{
+  "name": "002 Augusta-Krankenhaus Düsseldorf",
+  "addr": {
+    "street": "Amalienstraße",
+    "housenumber": "9",
+    "postcode": "40472",
+    "city": "Düsseldorf",
+    "country": ""
+  },
+  "lat": 51.26686,
+  "lon": 6.8247,
+  "notaufnahme": true
+},
+{
+  "name": "003 St. Vinzenz-Krankenhaus Düsseldorf",
+  "addr": {
+    "street": "Schloßstraße",
+    "housenumber": "85",
+    "postcode": "40477",
+    "city": "Düsseldorf",
+    "country": ""
+  },
+  "lat": 51.2425,
+  "lon": 6.79138,
+  "notaufnahme": true
+},
+{
+  "name": "004 Schön Klinik Düsseldorf",
+  "addr": {
+    "street": "Am Heerdter Krankenhaus",
+    "housenumber": "2",
+    "postcode": "40549",
+    "city": "Düsseldorf",
+    "country": ""
+  },
+  "lat": 51.23132,
+  "lon": 6.72727,
+  "notaufnahme": true
+},
+{   "name": "005 Marien Hospital", "addr": { "city": "Düsseldorf", "street": "Rochusstraße","housenumber": "2", "postcode": "40479"}, "lat": 51.2359753, "lon": 6.7855856, "notaufnahme": true, "specialities": ["neurological"]},
+{
+  "name": "006 Sana Krankenhaus Gerresheim",
+  "addr": {
+    "street": "Gräulinger Straße",
+    "housenumber": "120",
+    "postcode": "40625",
+    "city": "Düsseldorf",
+    "country": ""
+  },
+  "lat": 51.24327,
+  "lon": 6.85469,
+  "notaufnahme": true
+},
+{
+  "name": "007 Evangelisches Krankenhaus Düsseldorf",
+  "addr": {
+    "street": "Kirchfeldstraße",
+    "housenumber": "40",
+    "postcode": "40217",
+    "city": "Düsseldorf",
+    "country": ""
+  },
+  "lat": 51.21317,
+  "lon": 6.77306,
+  "notaufnahme": true
+},
+{
+  "name": "008 St. Martinus-Krankenhaus Düsseldorf",
+  "addr": {
+    "street": "Gladbacher Straße",
+    "housenumber": "26",
+    "postcode": "40219",
+    "city": "Düsseldorf",
+    "country": ""
+  },
+  "lat": 51.21158,
+  "lon": 6.76065,
+  "notaufnahme": true
+},
+{ "name": "009 Uniklinik Düsseldorf", "addr": { "city": "Düsseldorf", "street": "Moorenstraße","housenumber": "5", "postcode": "40225"}, "lat": 51.1959746, "lon": 6.7894365, "notaufnahme": true, "specialities": ["cardiac", "neurological", "pulmonological"]},
+{
+  "name": "010 Sana Krankenhaus Benrath",
+  "addr": {
+    "street": "Urdenbacher Allee",
+    "housenumber": "83",
+    "postcode": "40593",
+    "city": "Düsseldorf",
+    "country": ""
+  },
+  "lat": 51.15324,
+  "lon": 6.87068,
+  "notaufnahme": true
+},
+{
+  "name": "017 LVR-Klinikum Düsseldorf",
+  "addr": {
+    "street": "Bergische Landstraße",
+    "housenumber": "2",
+    "postcode": "40629",
+    "city": "Düsseldorf",
+    "country": ""
+  },
+  "lat": 51.24372,
+  "lon": 6.84426,
+  "notaufnahme": false
+}
 ]

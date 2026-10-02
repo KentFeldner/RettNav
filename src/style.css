@@ -1,13 +1,24 @@
-body { margin: 0; font-family: system-ui, sans-serif; }
-header { padding: 8px; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
-button { font-size: 1.1rem; padding: 10px 16px; }
-#hinweis { width: 100%; margin: 0; color: #a40; font-size: 0.9rem; }
+/* Die Seite ist genau so hoch wie der Bildschirm: oben Bedienung, darunter Karte + Liste */
+body {
+  margin: 0; font-family: system-ui, sans-serif;
+  display: flex; flex-direction: column; height: 100dvh;
+}
+header { padding: 6px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; }
+button { font-size: 0.95rem; padding: 6px 10px; }
+#hinweis { width: 100%; margin: 0; color: #a40; font-size: 0.85rem; }
 #hinweis:empty { display: none; }
-#map { height: 55vh; }
+
+/* Karte links, Klinikliste rechts daneben */
+main { flex: 1; display: flex; min-height: 0; position: relative; }
+#map { flex: 1; }
+#seite { width: 38%; max-width: 360px; overflow-y: auto; border-left: 1px solid #ccc; }
 
 /* Adresseingabe: PLZ, Stadt, Straße, Nr. */
-#adressform { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
-#adressform input { font-size: 1.1rem; padding: 10px; box-sizing: border-box; }
+#adressform { display: flex; flex-wrap: wrap; gap: 4px; width: 100%; }
+/* Wichtig: "display: flex" würde sonst das hidden-Attribut überstimmen */
+#adressform[hidden] { display: none; }
+#adressknopf[aria-expanded='true'] { background: #06c; border-color: #06c; color: #fff; }
+#adressform input { font-size: 0.95rem; padding: 6px; box-sizing: border-box; }
 #plz { width: 5.5em; }
 #stadt { flex: 1; min-width: 8em; }
 .suche { position: relative; flex: 2; min-width: 12em; }
@@ -17,25 +28,71 @@ button { font-size: 1.1rem; padding: 10px 16px; }
   position: absolute; z-index: 10; left: 0; right: 0; margin: 0; padding: 0;
   list-style: none; background: #fff; border: 1px solid #999;
 }
-#vorschlaege li { padding: 8px 10px; cursor: pointer; }
+#vorschlaege li { padding: 6px 8px; cursor: pointer; }
 #vorschlaege li:hover { background: #eef; }
 
 /* Klinikliste */
-#list { list-style: none; padding: 8px; margin: 0; }
+#list { list-style: none; padding: 6px; margin: 0; font-size: 0.85rem; }
 .klinik {
-  border: 1px solid #bbb; border-radius: 8px; padding: 8px 10px;
-  margin-bottom: 8px; cursor: pointer; background: #fff;
+  border: 1px solid #bbb; border-radius: 8px; padding: 6px 8px;
+  margin-bottom: 6px; cursor: pointer; background: #fff;
+  position: relative; padding-right: 36px; /* Platz für 🌍 rechts */
 }
 .klinik:hover { border-color: #888; }
-.klinik.ausgewaehlt { border: 3px solid #c00; background: #fff0f0; padding: 6px 8px; }
+.klinik.ausgewaehlt { border: 3px solid #c00; background: #fff0f0; padding: 4px 34px 4px 6px; }
 .fahrzeit { font-weight: bold; color: #c00; margin-top: 4px; }
 .warnung { color: #a40; font-size: 0.9rem; }
-#klinikwahl { width: 100%; font-size: 1.1rem; padding: 10px; }
-.adresse, .fachrichtungen { font-size: 0.9rem; color: #555; margin-top: 2px; }
+#klinikwahl { width: 100%; font-size: 0.95rem; padding: 6px; }
+.adresse, .fachrichtungen { font-size: 0.8rem; color: #555; margin-top: 2px; }
 
 /* Schalter für Fachrichtungen */
 #filter { display: flex; flex-wrap: wrap; gap: 6px; width: 100%; }
 #filter:empty { display: none; }
-.schalter { font-size: 0.95rem; padding: 6px 12px; border-radius: 16px; border: 1px solid #888; background: #fff; }
+.schalter { font-size: 0.85rem; padding: 4px 10px; border-radius: 16px; border: 1px solid #888; background: #fff; }
 .schalter[aria-pressed='true'] { background: #c00; border-color: #c00; color: #fff; }
-#keintreffer { padding: 0 8px; color: #a40; }
+#keintreffer { padding: 0 8px; color: #a40; font-size: 0.85rem; }
+
+/* Infozeile über der Karte */
+#auswahlinfo { padding: 6px 8px; background: #fff0f0; border-top: 3px solid #c00; font-size: 0.85rem; }
+#auswahlinfo .ziel { font-weight: bold; font-size: 1rem; color: #c00; }
+
+/* Sperre */
+#sperre[aria-pressed='true'] { background: #c00; border-color: #c00; color: #fff; }
+/* Gesperrt: nur Sperr-Knopf, Infozeile und Karte bleiben sichtbar.
+   Die Karte füllt dann von selbst den freien Platz (flex: 1). */
+body.gesperrt header > :not(#sperre),
+body.gesperrt #seite { display: none; }
+
+/* Study-Modus: nur der Knopf zeigt, dass er an ist */
+#study[aria-pressed='true'] { background: #060; border-color: #060; color: #fff; }
+
+/* "Route" unter den Klinik-Infos: nur bei Study und nur bei der ausgewählten Klinik */
+.routeknopf {
+  display: none; margin-top: 4px; padding: 0; border: none; background: none;
+  color: #06c; text-decoration: underline; font-size: inherit; font-weight: bold; cursor: pointer;
+}
+body.study .klinik.ausgewaehlt .routeknopf { display: inline; }
+
+/* Wegbeschreibung ersetzt die Klinikliste */
+#weg { display: none; }
+body.wegansicht #weg { display: block; }
+body.wegansicht #list, body.wegansicht #keintreffer { display: none; }
+#wegkopf { display: flex; gap: 6px; align-items: center; padding: 6px; font-size: 0.85rem; }
+#wegzurueck { font-size: 0.85rem; padding: 4px 8px; }
+#wegliste { margin: 0; padding: 0 6px 6px 28px; font-size: 0.85rem; }
+#wegliste li { padding: 4px 0; border-bottom: 1px solid #eee; }
+
+/* Gesperrt + Wegbeschreibung offen: Rechteck am unteren Rand über der Karte,
+   hoch genug für etwa zwei Einträge, scrollt für sich */
+body.gesperrt.wegansicht #seite {
+  display: block; position: absolute; left: 0; right: 0; bottom: 0;
+  width: auto; max-width: none; height: 8em; z-index: 5;
+  background: #fff; border-left: none; border-top: 3px solid #c00;
+}
+body.gesperrt.wegansicht #wegkopf { display: none; }
+
+/* Google-Maps-Link rechts oben im Klinik-Feld */
+.googlelink {
+  position: absolute; top: 4px; right: 4px;
+  font-size: 1.3rem; line-height: 1; padding: 4px; text-decoration: none;
+}

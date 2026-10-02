@@ -7,8 +7,11 @@
   </head>
   <body>
     <header>
+      <button id="sperre" type="button" aria-pressed="false">🔓 Sperren</button>
+      <button id="study" type="button" aria-pressed="false">🎓 Study</button>
       <button id="locate" type="button">Mein Standort</button>
-      <form id="adressform" autocomplete="off">
+      <button id="adressknopf" type="button" aria-expanded="false" aria-controls="adressform">📍 Adresse Einsatzort</button>
+      <form id="adressform" autocomplete="off" hidden>
         <input id="plz" inputmode="numeric" maxlength="5" placeholder="PLZ" />
         <input id="stadt" placeholder="Stadt" />
         <div class="suche">
@@ -19,14 +22,26 @@
         <button type="submit">Suchen</button>
       </form>
       <select id="klinikwahl">
-        <option value="">Vorgegebene Klinik wählen …</option>
+        <option value="">selber Klinik auswählen</option>
       </select>
       <div id="filter"></div>
       <p id="hinweis"></p>
     </header>
-    <div id="map"></div>
-    <p id="keintreffer" hidden>Keine Klinik hat alle gewählten Fachrichtungen.</p>
-    <ol id="list"></ol>
+    <div id="auswahlinfo"></div>
+    <main>
+      <div id="map"></div>
+      <aside id="seite">
+        <p id="keintreffer" hidden>Keine Klinik hat alle gewählten Fachrichtungen.</p>
+        <ol id="list"></ol>
+        <div id="weg">
+          <div id="wegkopf">
+            <button id="wegzurueck" type="button">← Liste</button>
+            <strong id="wegtitel"></strong>
+          </div>
+          <ol id="wegliste"></ol>
+        </div>
+      </aside>
+    </main>
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>
