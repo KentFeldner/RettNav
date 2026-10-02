@@ -18,6 +18,7 @@ const SUCH_BEREICH = '6.60,51.10,7.00,51.40'; // West, Süd, Ost, Nord
 
 // Routenberechnung (öffentlicher OSRM-Demoserver, nur zum Testen gedacht)
 const OSRM_URL = 'https://router.project-osrm.org/route/v1/driving/';
+const OSRM_TABLE_URL = 'https://router.project-osrm.org/table/v1/driving/';
 
 // Näher als diese Zoomstufe geht die Karte beim Anzeigen einer Route nicht heran
 const MAX_ZOOM_ROUTE = 16;
@@ -151,7 +152,7 @@ function setzeStandort(lat: number, lon: number) {
     .addTo(map);
   map.flyTo({ center: [lon, lat], zoom: 13 });
   zeigeRouteAufKarte(null); // alte Route entfernen
-  zeigeNaechste(lat, lon);
+  zeigeKliniken(lat, lon);
 }
 
 function bestimmeStandort() {
@@ -270,6 +271,26 @@ async function holeRoute(start: Punkt, ziel: Punkt): Promise<Route> {
   };
 }
 
+type Fahrzeit = { minuten: number; km: number };
+
+// Fahrzeiten vom Start zu mehreren Zielen mit einer Anfrage (OSRM "table").
+// Liefert pro Ziel ein Ergebnis oder null, falls keine Route gefunden wurde.
+async function holeFahrzeiten(start: Punkt, ziele: Punkt[]): Promise<(Fahrzeit | null)[]> {
+  const punkte = [start, ...ziele].map((p) => `${p.lon},${p.lat}`).join(';');
+  const url = `${OSRM_TABLE_URL}${punkte}?sources=0&annotations=duration,distance`;
+  const antwort = await fetch(url);
+  if (!antwort.ok) throw new Error(`HTTP ${antwort.status}`);
+  const daten = await antwort.json();
+  const dauer: (number | null)[] = daten.durations[0];
+  const strecke: (number | null)[] = daten.distances[0];
+  // Index 0 ist der Start selbst, die Ziele beginnen bei 1
+  return ziele.map((_, i) => {
+    const sek = dauer[i + 1];
+    const meter = strecke[i + 1];
+    return sek == null || meter == null ? null : { minuten: Math.round(sek / 60), km: meter / 1000 };
+  });
+}
+
 // Kartenausschnitt so wählen, dass Start und Ziel beide gut sichtbar sind.
 // fitBounds legt die beiden Punkte an gegenüberliegende Ränder bzw. Ecken.
 function zeigeStartUndZiel(start: Punkt, ziel: Punkt) {
@@ -278,89 +299,172 @@ function zeigeStartUndZiel(start: Punkt, ziel: Punkt) {
   map.fitBounds(bereich, { padding: 60, maxZoom: MAX_ZOOM_ROUTE, duration: 800 });
 }
 
+// Kartenausschnitt so wählen, dass die ganze Route sichtbar ist.
+// Die Route kann einen Bogen machen und dabei über Start und Ziel hinausgehen.
+function zeigeGanzeRoute(linie: Linie) {
+  const [erster, ...rest] = linie.coordinates;
+  const bereich = new maplibregl.LngLatBounds(erster, erster);
+  for (const punkt of rest) bereich.extend(punkt);
+  map.fitBounds(bereich, { padding: 60, maxZoom: MAX_ZOOM_ROUTE, duration: 800 });
+}
+
 // ---------------------------------------------------------------------------
-// Klinikliste
+// Klinikliste und Auswahlliste
 // ---------------------------------------------------------------------------
 
+// Ein Listeneintrag: die Klinik, ihr <li>-Element und die Werte zum Sortieren
+type Eintrag = {
+  klinik: Klinik;
+  li: HTMLLIElement;
+  luftlinieKm: number;
+  minuten?: number; // Fahrzeit, sobald bekannt
+};
+
+const liste = document.querySelector<HTMLOListElement>('#list')!;
+const klinikWahl = document.querySelector<HTMLSelectElement>('#klinikwahl')!;
+
+let eintraege: Eintrag[] = [];
+let letzteListe = 0;
 let letzteAuswahl = 0;
 
-async function waehleKlinik(li: HTMLLIElement, k: Klinik) {
+// Auswahlliste einmalig mit allen Kliniken füllen (alphabetisch)
+const alleKliniken = kliniken as Klinik[];
+[...alleKliniken]
+  .sort((a, b) => a.name.localeCompare(b.name, 'de'))
+  .forEach((k) => {
+    const option = document.createElement('option');
+    option.value = String(alleKliniken.indexOf(k)); // Position in kliniken.json
+    option.textContent = k.name;
+    klinikWahl.appendChild(option);
+  });
+
+klinikWahl.addEventListener('change', () => {
+  if (klinikWahl.value === '') return;
+  const k = alleKliniken[Number(klinikWahl.value)];
+  const eintrag = eintraege.find((e) => e.klinik === k);
+  if (!eintrag) {
+    zeigeHinweis('Bitte zuerst den Standort bestimmen oder eine Adresse eingeben.');
+    klinikWahl.value = '';
+    return;
+  }
+  eintrag.li.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  waehleKlinik(eintrag);
+});
+
+async function waehleKlinik(eintrag: Eintrag) {
   if (!standort) return;
   const start = standort;
+  const k = eintrag.klinik;
 
-  // Markierung: nur der angeklickte Eintrag ist ausgewählt
+  // Markierung: nur dieser Eintrag ist ausgewählt
   document.querySelectorAll('.klinik.ausgewaehlt').forEach((el) => el.classList.remove('ausgewaehlt'));
-  li.classList.add('ausgewaehlt');
+  eintrag.li.classList.add('ausgewaehlt');
+  klinikWahl.value = String(alleKliniken.indexOf(k)); // Auswahlliste mitziehen
 
   zeigeStartUndZiel(start, k);
-
-  const fahrzeit = li.querySelector<HTMLDivElement>('.fahrzeit')!;
-  fahrzeit.textContent = 'Route wird berechnet …';
 
   const dieseAuswahl = ++letzteAuswahl;
   try {
     const route = await holeRoute(start, k);
     if (dieseAuswahl !== letzteAuswahl) return; // inzwischen andere Klinik gewählt
     zeigeRouteAufKarte(route.linie);
-    fahrzeit.textContent = `ca. ${route.minuten} min, ${route.km.toFixed(1)} km Fahrstrecke (ohne Sonderrechte)`;
+    zeigeGanzeRoute(route.linie);
   } catch {
     if (dieseAuswahl !== letzteAuswahl) return;
-    fahrzeit.textContent = 'Route konnte nicht berechnet werden.';
+    zeigeHinweis('Die Route konnte nicht berechnet werden.');
   }
 }
 
-function zeigeNaechste(lat: number, lon: number) {
-  const sortiert = (kliniken as Klinik[])
-    .filter((k) => k.notaufnahme)
-    .map((k) => ({ ...k, km: entfernungKm(lat, lon, k.lat, k.lon) }))
-    .sort((a, b) => a.km - b.km)
-    .slice(0, 5);
+// Baut das <li> für eine Klinik
+function baueEintrag(k: Klinik, luftlinieKm: number): Eintrag {
+  const li = document.createElement('li');
+  li.className = 'klinik';
+  li.tabIndex = 0; // mit Tab-Taste erreichbar
 
-  const liste = document.querySelector<HTMLOListElement>('#list')!;
+  const titel = document.createElement('strong');
+  titel.textContent = k.name;
+  li.appendChild(titel);
+
+  // Fahrzeit und Entfernung, wird gefüllt, sobald die Fahrzeiten da sind
+  const fahrzeit = document.createElement('div');
+  fahrzeit.className = 'fahrzeit';
+  fahrzeit.textContent = `Fahrzeit wird berechnet … (${luftlinieKm.toFixed(1)} km Luftlinie)`;
+  li.appendChild(fahrzeit);
+
+  if (!k.notaufnahme) {
+    const div = document.createElement('div');
+    div.className = 'warnung';
+    div.textContent = 'Keine Notaufnahme';
+    li.appendChild(div);
+  }
+
+  const adresse = formatiereAdresse(k.addr);
+  if (adresse.length > 0) {
+    const div = document.createElement('div');
+    div.className = 'adresse';
+    // Jede Zeile einzeln, getrennt durch einen Zeilenumbruch
+    adresse.forEach((zeile, i) => {
+      if (i > 0) div.appendChild(document.createElement('br'));
+      div.appendChild(document.createTextNode(zeile));
+    });
+    li.appendChild(div);
+  }
+
+  if (k.specialities && k.specialities.length > 0) {
+    const div = document.createElement('div');
+    div.className = 'fachrichtungen';
+    const namen = k.specialities.map((s) => FACHRICHTUNGEN[s] ?? s);
+    div.textContent = 'Fachrichtungen: ' + namen.join(', ');
+    li.appendChild(div);
+  }
+
+  const eintrag: Eintrag = { klinik: k, li, luftlinieKm };
+  li.addEventListener('click', () => waehleKlinik(eintrag));
+  li.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      waehleKlinik(eintrag);
+    }
+  });
+  return eintrag;
+}
+
+async function zeigeKliniken(lat: number, lon: number) {
+  const dieseListe = ++letzteListe;
+  klinikWahl.value = '';
+
+  // 1. Sofort alle Kliniken nach Luftlinie anzeigen
+  eintraege = alleKliniken
+    .map((k) => baueEintrag(k, entfernungKm(lat, lon, k.lat, k.lon)))
+    .sort((a, b) => a.luftlinieKm - b.luftlinieKm);
   liste.innerHTML = '';
-  for (const k of sortiert) {
-    const li = document.createElement('li');
-    li.className = 'klinik';
-    li.tabIndex = 0; // mit Tab-Taste erreichbar
+  eintraege.forEach((e) => liste.appendChild(e.li));
 
-    const titel = document.createElement('strong');
-    titel.textContent = `${k.name} – ${k.km.toFixed(1)} km Luftlinie`;
-    li.appendChild(titel);
+  // 2. Fahrzeiten zu allen Kliniken mit einer einzigen Anfrage holen
+  try {
+    const ergebnisse = await holeFahrzeiten({ lat, lon }, eintraege.map((e) => e.klinik));
+    if (dieseListe !== letzteListe) return; // Standort hat sich inzwischen geändert
 
-    const adresse = formatiereAdresse(k.addr);
-    if (adresse.length > 0) {
-      const div = document.createElement('div');
-      div.className = 'adresse';
-      // Jede Zeile einzeln, getrennt durch einen Zeilenumbruch
-      adresse.forEach((zeile, i) => {
-        if (i > 0) div.appendChild(document.createElement('br'));
-        div.appendChild(document.createTextNode(zeile));
-      });
-      li.appendChild(div);
-    }
-
-    if (k.specialities && k.specialities.length > 0) {
-      const div = document.createElement('div');
-      div.className = 'fachrichtungen';
-      const namen = k.specialities.map((s) => FACHRICHTUNGEN[s] ?? s);
-      div.textContent = 'Fachrichtungen: ' + namen.join(', ');
-      li.appendChild(div);
-    }
-
-    // Platz für die Fahrzeit, wird nach der Auswahl gefüllt
-    const fahrzeit = document.createElement('div');
-    fahrzeit.className = 'fahrzeit';
-    li.appendChild(fahrzeit);
-
-    li.addEventListener('click', () => waehleKlinik(li, k));
-    li.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter' || e.key === ' ') {
-        e.preventDefault();
-        waehleKlinik(li, k);
+    eintraege.forEach((e, i) => {
+      const r = ergebnisse[i];
+      const fahrzeit = e.li.querySelector<HTMLDivElement>('.fahrzeit')!;
+      if (r) {
+        e.minuten = r.minuten;
+        fahrzeit.textContent = `ca. ${r.minuten} min, ${r.km.toFixed(1)} km Fahrstrecke`;
+      } else {
+        fahrzeit.textContent = `Keine Route gefunden (${e.luftlinieKm.toFixed(1)} km Luftlinie)`;
       }
     });
 
-    liste.appendChild(li);
+    // 3. Nach Fahrzeit neu sortieren. Kliniken ohne Fahrzeit kommen ans Ende.
+    eintraege.sort((a, b) => (a.minuten ?? Infinity) - (b.minuten ?? Infinity));
+    eintraege.forEach((e) => liste.appendChild(e.li)); // appendChild verschiebt vorhandene Elemente
+  } catch {
+    if (dieseListe !== letzteListe) return;
+    zeigeHinweis('Fahrzeiten konnten nicht berechnet werden. Die Liste ist nach Luftlinie sortiert.');
+    eintraege.forEach((e) => {
+      e.li.querySelector('.fahrzeit')!.textContent = `${e.luftlinieKm.toFixed(1)} km Luftlinie`;
+    });
   }
 }
 

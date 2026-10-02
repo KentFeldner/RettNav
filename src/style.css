@@ -25,3 +25,6 @@ button { font-size: 1.1rem; padding: 10px 16px; }
 .klinik.ausgewaehlt { border: 3px solid #c00; background: #fff0f0; padding: 6px 8px; }
 .fahrzeit { font-weight: bold; color: #c00; margin-top: 4px; }
 .adresse, .fachrichtungen { font-size: 0.9rem; color: #555; margin-top: 2px; }
+
+.warnung { color: #a40; font-size: 0.9rem; }
+#klinikwahl { width: 100%; font-size: 1.1rem; padding: 10px; }
