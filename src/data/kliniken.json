@@ -1,0 +1,4 @@
+[
+  { "name": "Uniklinik Düsseldorf", "addr": { "city": "Düsseldorf", "country": "DE", "street": "Moorenstraße","housenumber": "5", "postcode": "40225"}, "lat": 51.1959746, "lon": 6.7894365, "notaufnahme": true, "specialities": ["cardiac", "neurological", "pulmonological"]},
+  { "name": "Marien Hospital", "addr": { "city": "Düsseldorf", "country": "DE", "street": "Rochusstraße","housenumber": "2", "postcode": "40479"}, "lat": 51.2359753, "lon": 6.7855856, "notaufnahme": true, "specialities": ["neurological"]}
+]
